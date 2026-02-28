@@ -1,6 +1,9 @@
 from pathlib import Path
-from util import (count_file_creation_time, group_by_day, delete_before, pretty_output, 
+from util import (count_file_creation_time, group_by_day, delete_before, pretty_output,
                   parse_user_date, show_files_per_day, load_config, del_for_a_specific_date, settings)
+from watchdog.observers import Observer
+from watcher import MyHandler
+from db import init_db, DB_NAME
 import questionary
 
 
@@ -31,6 +34,18 @@ def main(screenshot_dir):
             show_files_per_day(screenshot_db, user_date)
 
 if __name__ == "__main__":
+    init_db()
     config: dict = load_config()
     screenshot_dir = config["screenshot_dir"]
-    main(screenshot_dir)
+    
+    observer = Observer()
+    observer.schedule(MyHandler(), screenshot_dir, recursive=False)
+    observer.start()
+
+    try:
+        ...
+    except KeyboardInterrupt:
+        observer.stop()
+    
+    observer.join()
+    # main(screenshot_dir)
