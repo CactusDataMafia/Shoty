@@ -2,9 +2,11 @@ from pathlib import Path
 from datetime import datetime, timedelta, date
 from collections import defaultdict
 import json
-from db import get_connection, TABLE_NAME
+from db import get_connection, TABLE_NAME, APP_SUPPORT_DIR
 
-CONFIG_PATH = Path(__file__).parent / "config.json"
+CONFIG_PATH = APP_SUPPORT_DIR / "config.json"
+
+
 ### Functions to work with data and time
 
 def count_file_creation_time(file: Path):
@@ -20,6 +22,14 @@ def parse_user_date(user_date: str) -> date:
 
 ### Functions to work with DB
 
+def get_screen_last_7_days():
+    with get_connection() as connection:
+        cursor = connection.cursor()
+
+        command = f"SELECT DATE(creation_date) as day, COUNT(*) as count FROM {TABLE_NAME} WHERE creation_date >= DATE('now', '-7 days') GROUP BY DATE(creation_date) ORDER BY DATE(creation_date) DESC"
+        data = cursor.execute(command).fetchall()
+        return data
+    
 def get_all_screenshots():
     with get_connection() as connection:
         cursor = connection.cursor()
@@ -27,6 +37,14 @@ def get_all_screenshots():
         command = f"SELECT * FROM {TABLE_NAME}"
         data = cursor.execute(command)
         return data.fetchall()
+
+def show_amount_screens():
+    with get_connection() as connection:
+        cursor = connection.cursor()
+
+        command = f"SELECT COUNT(*) FROM {TABLE_NAME}"
+        amount = cursor.execute(command).fetchone()[0]
+        return int(amount)
 
 def group_by_day(screenshots) -> dict[date, list[Path]]:
     screenshot_per_days = defaultdict(list)
@@ -57,15 +75,20 @@ def delete_before(days: int) -> None:
                 print("Files have been succesfull deleted.")
         connection.commit()
 
-def del_for_a_specific_date(user_date: str):
+def find_screens_for_a_specific_date(user_date: str):
+        with get_connection() as connection:
+            cursor = connection.cursor()
+            user_date_obj = parse_user_date(user_date)
+            user_datetime = datetime(year=user_date_obj.year, month=user_date_obj.month, day=user_date_obj.day).strftime("%Y-%m-%d %H:%M:%S")
+            command = f"SELECT * FROM {TABLE_NAME} WHERE DATE(creation_date) = DATE(?)"
+            data = cursor.execute(command, (user_datetime, )).fetchall()
+            return data
+        
+def del_for_a_specific_date(user_date):
     with get_connection() as connection:
         cursor = connection.cursor()
-        user_date_obj = parse_user_date(user_date)
-        user_datetime = datetime(year=user_date_obj.year, month=user_date_obj.month, day=user_date_obj.day).strftime("%Y-%m-%d %H:%M:%S")
-        command = f"SELECT * FROM {TABLE_NAME} WHERE DATE(creation_date) = DATE(?)"
-        data = cursor.execute(command, (user_datetime, )).fetchall()
-
-        for screen in data:
+        screens_for_date = find_screens_for_a_specific_date(user_date)
+        for screen in screens_for_date:
             path_obj = Path(screen["path"])
             try:
                 path_obj.unlink()
@@ -80,28 +103,53 @@ def del_for_a_specific_date(user_date: str):
 
 ### Files to work with config
 
-def setup():
-    screenshot_dir = input("Введите путь до папки со скриншотами: ")
-    if not Path(screenshot_dir).is_dir():
+def create_empty_config():
+    CONFIG_PATH.write_text("{}", encoding="utf-8")
+
+def update_config_dict(new_path: str):
+    path_obj = Path(new_path)
+    if not path_obj.is_dir():
         raise NotADirectoryError("Данный путь не видет в директорию!\nДля корректной работы необходимо указать путь до директории")
-    
-    notification_time = input("Время уведомления (например 21:00): ")
 
-    config = {
-        "screenshot_dir": screenshot_dir,
-        "notification_time": notification_time
-    }
-
+    config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+    config["screenshot_dir"] = new_path
     CONFIG_PATH.write_text(json.dumps(config), encoding="utf-8")
-    
-    return config
 
-def load_config() -> dict:
+def update_notification_time(new_time: str):
+    try:
+        hours, minutes = [int(el) for el in new_time.split(":")]
+    except TypeError:
+        raise
+
+    config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+    config["notification_time"] = new_time
+    CONFIG_PATH.write_text(json.dumps(config), encoding="utf-8")
+
+# def setup(setup_dir=True, setup_time=True):
+#     config = {}
+
+#     if setup_dir:
+#         screenshot_dir = input("Введите путь до папки со скриншотами: ")
+#         if not Path(screenshot_dir).is_dir():
+#             raise NotADirectoryError("Данный путь не видет в директорию!\nДля корректной работы необходимо указать путь до директории")
+#         config["screenshot_dir"] = screenshot_dir
+#     if setup_time:
+#         notification_time = input("Время уведомления (например 21:00): ")
+#         config["notification_time"] = notification_time
+    
+#     if len(config) > 0:
+#         CONFIG_PATH.write_text(json.dumps(config), encoding="utf-8")
+    
+#     return config
+
+def load_config() -> dict | None:
     if CONFIG_PATH.exists():
-        config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
-        return config
-    else:
-        return setup()
+        try:
+            config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+            return config
+        except:
+            return None
+    return None
 
 
 ### Function not using now
