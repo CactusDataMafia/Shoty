@@ -2,6 +2,7 @@ import rumps
 import subprocess
 
 from watchdog.observers import Observer
+from datetime import datetime, timedelta, date
 
 from util import delete_before, del_for_a_specific_date, load_config, update_config_dict, update_notification_time, show_amount_screens, create_empty_config, find_screens_for_a_specific_date, get_screen_last_7_days
 from db import sync_db, init_db, clear_db
@@ -18,12 +19,12 @@ class AwesomeStatusBarApp(rumps.App):
             self.config = self.run_setup()
             init_db()
         
-        if self.config: 
+        if self.config:
             cnfg = self.config["screenshot_dir"] # type ingnore
             sync_db(cnfg)
             self.start_observer(cnfg)
 
-        
+        self._notified_today = None
         self.update_total_display()
 
 
@@ -97,7 +98,28 @@ class AwesomeStatusBarApp(rumps.App):
         count = show_amount_screens()
         self.total_amount.title = f"Total: {count} screenshots"
 
+    @rumps.timer(30)
+    def check_notification(self, _):
+        config = load_config()
 
+        if config:
+            try:
+                delta = timedelta(seconds=30)
+                hours, minutes = [int(el) for el in config["notification_time"].split(":")]
+                today = date.today()
+                dt_to_check:datetime = datetime(year=today.year, day=today.day, month=today.month, hour=hours, minute=minutes)
+                if abs(datetime.now() - dt_to_check) < delta and self._notified_today != today:
+                    self._notified_today = today
+                    count = find_screens_for_a_specific_date(dt_to_check.strftime("%Y-%m-%d"))
+                    rumps.notification(
+                        title="Shoty",
+                        subtitle="Daily Summary",
+                        message=f"You made {len(count)} screenshots today\nUse another commands for delete or look up!"
+                    )
+            except Exception:
+                pass
+
+                
 ### MenuItems Callbacks ###
 
     ### Overview menu ###

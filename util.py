@@ -125,23 +125,6 @@ def update_notification_time(new_time: str):
     config["notification_time"] = new_time
     CONFIG_PATH.write_text(json.dumps(config), encoding="utf-8")
 
-# def setup(setup_dir=True, setup_time=True):
-#     config = {}
-
-#     if setup_dir:
-#         screenshot_dir = input("Введите путь до папки со скриншотами: ")
-#         if not Path(screenshot_dir).is_dir():
-#             raise NotADirectoryError("Данный путь не видет в директорию!\nДля корректной работы необходимо указать путь до директории")
-#         config["screenshot_dir"] = screenshot_dir
-#     if setup_time:
-#         notification_time = input("Время уведомления (например 21:00): ")
-#         config["notification_time"] = notification_time
-    
-#     if len(config) > 0:
-#         CONFIG_PATH.write_text(json.dumps(config), encoding="utf-8")
-    
-#     return config
-
 def load_config() -> dict | None:
     if CONFIG_PATH.exists():
         try:
@@ -150,30 +133,3 @@ def load_config() -> dict | None:
         except:
             return None
     return None
-
-
-### Function not using now
-
-# def pretty_output(screen_per_days_dict) -> None:
-#     for indx, dict_data in enumerate(sorted(screen_per_days_dict.items(), reverse=True)):
-#         print(f"{indx}. {dict_data[0]} - {len(dict_data[1])} screenshots")
-
-# def show_files_per_day(screenshot_dict, user_date) -> None:
-#     screens_for_a_day = screenshot_dict[user_date]
-#     for indx, screen in enumerate(screens_for_a_day):
-#         print(f"{indx}. {screen.name}")
-
-# def settings():
-#     return setup()
-
-# def get_valid_dates(screenshot_dict, days: int, ) -> list[date]:
-#     threshold_date: date = (datetime.now() - timedelta(days=days)).date() #
-#     screen_dates = sorted(screenshot_dict.keys(), reverse=True)
-#     last_valid_date_indx = 0
-#     for indx, dt in enumerate(screen_dates):
-#         dt: date
-#         if dt < threshold_date:
-#             last_valid_date_indx = indx
-#             break
-    
-#     return screen_dates[last_valid_date_indx:]
